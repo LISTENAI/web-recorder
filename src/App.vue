@@ -17,20 +17,35 @@
       </a-col>
 
       <a-col>
-        <a-select default-value="16000" :style="{ width: '100px' }">
-          <a-select-option value="16000">16 kHz</a-select-option>
+        <a-select
+          v-model="sampleRate"
+          :disabled="opened"
+          :style="{ width: '100px' }"
+        >
+          <a-select-option :value="16000">16 kHz</a-select-option>
         </a-select>
       </a-col>
-
       <a-col>
-        <a-select default-value="32" :style="{ width: '100px' }">
-          <a-select-option value="32">32 bit</a-select-option>
+        <a-select
+          v-model="bitDepth"
+          :disabled="opened"
+          :style="{ width: '100px' }"
+        >
+          <a-select-option :value="16">16 bit</a-select-option>
+          <a-select-option :value="24">24 bit</a-select-option>
+          <a-select-option :value="32">32 bit</a-select-option>
         </a-select>
       </a-col>
-
       <a-col>
-        <a-select default-value="6" :style="{ width: '100px' }">
-          <a-select-option value="6">6 ch</a-select-option>
+        <a-select
+          v-model="channels"
+          :disabled="opened"
+          :style="{ width: '100px' }"
+        >
+          <a-select-option :value="1">1 ch</a-select-option>
+          <a-select-option :value="2">2 ch</a-select-option>
+          <a-select-option :value="4">4 ch</a-select-option>
+          <a-select-option :value="6">6 ch</a-select-option>
         </a-select>
       </a-col>
     </a-row>
@@ -55,8 +70,9 @@
           <a-progress
             size="small"
             status="normal"
-            :showInfo="false"
-            :percent="track.value"
+            :show-info="false"
+            :percent="peaks[index]"
+            :stroke-color="track.muted ? 'lightgrey' : undefined"
           />
         </a-col>
       </a-row>
@@ -65,9 +81,15 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from "vue-property-decorator";
+import { Component, Vue, Watch } from "vue-property-decorator";
 
 import Recorder from "./recorder";
+
+interface ITrack {
+  muted: boolean;
+}
+
+const PEAK_UPDATE_PERIOD_MS = 100;
 
 @Component
 export default class App extends Vue {
@@ -76,24 +98,39 @@ export default class App extends Vue {
 
   recorder = new Recorder();
 
-  tracks = [
-    { muted: false, value: 30 },
-    { muted: false, value: 40 },
-    { muted: false, value: 70 },
-    { muted: false, value: 90 },
-  ];
+  sampleRate = 16000;
+  bitDepth = 32;
+  channels = 6;
+
+  tracks: ITrack[] = [];
+  peaks: number[] = [];
+
+  samplesReceived = Buffer.alloc(0);
 
   mounted(): void {
     this.recorder.on("stateChanged", this.handleStateChange);
+    this.recorder.on("samples", this.handleSamples);
+    this.onChannelsChanged(this.channels);
   }
 
   beforeDestroy(): void {
     this.recorder.off("stateChanged", this.handleStateChange);
+    this.recorder.off("samples", this.handleSamples);
   }
 
   handleStateChange(): void {
     this.opened = this.recorder.opened;
     this.busy = false;
+    this.samplesReceived = Buffer.alloc(0);
+  }
+
+  @Watch("channels")
+  onChannelsChanged(channels: number): void {
+    const tracks: ITrack[] = [];
+    for (let i = 0; i < channels; i++) {
+      tracks[i] = this.tracks[i] || { muted: false };
+    }
+    this.tracks = tracks;
   }
 
   async open(): Promise<void> {
@@ -114,6 +151,29 @@ export default class App extends Vue {
         muted: !this.tracks[i].muted,
       },
     };
+  }
+
+  handleSamples(samples: Buffer): void {
+    const received = (this.samplesReceived = Buffer.concat([
+      this.samplesReceived,
+      samples,
+    ]));
+
+    const samplesPerMs = this.sampleRate / 1000;
+    const bytesPerSample = this.bitDepth / 8;
+
+    const bufferLength =
+      PEAK_UPDATE_PERIOD_MS * samplesPerMs * bytesPerSample * this.channels;
+
+    if (received.length >= bufferLength) {
+      const peaks: number[] = [];
+      for (let i = 0; i < this.channels; i++) {
+        const sample = received.readInt32LE(i * bytesPerSample) / 0xffffffff;
+        peaks[i] = Math.abs(sample) * 100 * 20;
+      }
+      this.peaks = peaks;
+      this.samplesReceived = received.slice(bufferLength);
+    }
   }
 }
 </script>

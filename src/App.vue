@@ -32,7 +32,6 @@
           :style="{ width: '100px' }"
         >
           <a-select-option :value="16">16 bit</a-select-option>
-          <a-select-option :value="24">24 bit</a-select-option>
           <a-select-option :value="32">32 bit</a-select-option>
         </a-select>
       </a-col>
@@ -44,7 +43,9 @@
         >
           <a-select-option :value="1">1 ch</a-select-option>
           <a-select-option :value="2">2 ch</a-select-option>
+          <a-select-option :value="3">3 ch</a-select-option>
           <a-select-option :value="4">4 ch</a-select-option>
+          <a-select-option :value="5">5 ch</a-select-option>
           <a-select-option :value="6">6 ch</a-select-option>
         </a-select>
       </a-col>
@@ -84,6 +85,7 @@
 import { Component, Vue, Watch } from "vue-property-decorator";
 
 import Recorder from "./recorder";
+import Player, { ISampleRate, IBitDepth } from "./player";
 
 interface ITrack {
   muted: boolean;
@@ -98,14 +100,15 @@ export default class App extends Vue {
 
   recorder = new Recorder();
 
-  sampleRate = 16000;
-  bitDepth = 32;
+  sampleRate: ISampleRate = 16000;
+  bitDepth: IBitDepth = 32;
   channels = 6;
 
   tracks: ITrack[] = [];
   peaks: number[] = [];
 
   samplesReceived = Buffer.alloc(0);
+  player: Player | null = null;
 
   mounted(): void {
     this.recorder.on("stateChanged", this.handleStateChange);
@@ -135,11 +138,29 @@ export default class App extends Vue {
 
   async open(): Promise<void> {
     this.busy = true;
+
+    this.player = new Player(
+      this.sampleRate,
+      this.bitDepth,
+      this.channels,
+      PEAK_UPDATE_PERIOD_MS
+    );
+
+    for (let i = 0; i < this.channels; i++) {
+      this.player.setMute(i, this.tracks[i]?.muted);
+    }
+
     await this.recorder.open();
   }
 
   async close(): Promise<void> {
     this.busy = true;
+
+    if (this.player) {
+      this.player.destroy();
+      this.player = null;
+    }
+
     await this.recorder.close();
   }
 
@@ -151,6 +172,10 @@ export default class App extends Vue {
         muted: !this.tracks[i].muted,
       },
     };
+
+    if (this.player) {
+      this.player.setMute(i, this.tracks[i].muted);
+    }
   }
 
   handleSamples(samples: Buffer): void {
@@ -172,6 +197,9 @@ export default class App extends Vue {
         peaks[i] = Math.abs(sample) * 100 * 20;
       }
       this.peaks = peaks;
+
+      this.player!.feed(received.slice(0, bufferLength));
+
       this.samplesReceived = received.slice(bufferLength);
     }
   }

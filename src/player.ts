@@ -82,12 +82,15 @@ export default class Player {
     const frames = this.samples.length / this.channels;
 
     const bufferSource = this.audioCtx.createBufferSource();
-    const audioBuffer = this.audioCtx.createBuffer(this.channels, frames, this.sampleRate);
+    const audioBuffer = this.audioCtx.createBuffer(1, frames, this.sampleRate);
 
-    for (let channel = 0; channel < this.channels; channel++) {
-      const audioData = audioBuffer.getChannelData(channel);
-      for (let i = 0; i < frames; i++) {
-        audioData[i] = this.muted[channel] ? 0 : this.samples[i * this.channels + channel];
+    const audioData = audioBuffer.getChannelData(0);
+    for (let i = 0; i < frames; i++) {
+      audioData[i] = 0;
+      for (let channel = 0; channel < this.channels; channel++) {
+        if (!this.muted[channel]) {
+          audioData[i] += this.samples[i * this.channels + channel] / this.channels;
+        }
       }
     }
 

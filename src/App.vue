@@ -149,7 +149,7 @@ export default class App extends Vue {
       this.player.setMute(i, this.tracks[i]?.muted);
     }
 
-    await this.recorder.open();
+    await this.recorder.open(this.sampleRate, this.bitDepth, this.channels);
   }
 
   async close(): Promise<void> {

@@ -1,10 +1,19 @@
 import Vue from 'vue';
-import Antd from 'ant-design-vue';
-import 'ant-design-vue/dist/antd.css';
+
+import {
+  Button,
+  Col,
+  Progress,
+  Row,
+  Select,
+} from 'ant-design-vue';
+Vue.use(Button);
+Vue.use(Col);
+Vue.use(Progress);
+Vue.use(Row);
+Vue.use(Select);
 
 import App from './App.vue';
-
-Vue.use(Antd);
 
 new Vue({
   render: h => h(App),

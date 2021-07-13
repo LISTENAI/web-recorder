@@ -22,6 +22,8 @@ jobs:
 
       - name: Build
         run: npm run build
+        env:
+          PUBLIC_PATH: /web-recorder/
 
       - uses: benjlevesque/short-sha@v1.2
         id: short-sha

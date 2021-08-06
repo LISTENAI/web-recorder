@@ -97,7 +97,15 @@ export default class Recorder extends EventEmitter {
 
       this.buffer = samples.slice(offset + length);
 
-      this.emit('samples', Buffer.concat(queue));
+      const output = Buffer.concat(queue);
+      for (let i = 0; i < output.length; i += this.bytesPerSample) {
+        for (let j = 0; j < this.bytesPerSample - 1; j++) {
+          output[i + j] = output[i + j + 1];
+        }
+        output[i + this.bytesPerSample] = 0;
+      }
+
+      this.emit('samples', output);
     }
   }
 }

@@ -84,7 +84,7 @@ export default class Recorder extends EventEmitter {
       const offset = findFirstChannel(this.buffer, samples, this.bytesPerSample, this.channels);
       if (offset == -1) {
         console.error('Cannot find first channel');
-        return;
+        continue;
       }
 
       const head = Buffer.concat([this.buffer, samples.slice(0, offset)]);

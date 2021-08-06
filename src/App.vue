@@ -107,7 +107,6 @@ export default class App extends Vue {
   tracks: ITrack[] = [];
   peaks: number[] = [];
 
-  samplesReceived = Buffer.alloc(0);
   player: Player | null = null;
 
   constructor() {
@@ -132,7 +131,6 @@ export default class App extends Vue {
   handleStateChange(): void {
     this.opened = this.recorder.opened;
     this.busy = false;
-    this.samplesReceived = Buffer.alloc(0);
   }
 
   @Watch("channels")
@@ -182,7 +180,9 @@ export default class App extends Vue {
   }
 
   handleSamples(samples: Buffer): void {
-    this.player!.feed(samples);
+    if (this.player) {
+      this.player.feed(samples);
+    }
     this.updatePeaks(samples);
   }
 

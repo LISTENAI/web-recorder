@@ -82,6 +82,7 @@
 
 <script lang="ts">
 import { Component, Vue, Watch } from "vue-property-decorator";
+import { throttle } from "throttle-debounce";
 
 import Recorder from "./recorder";
 import Player, { ISampleRate, IBitDepth } from "./player";
@@ -108,6 +109,14 @@ export default class App extends Vue {
 
   samplesReceived = Buffer.alloc(0);
   player: Player | null = null;
+
+  constructor() {
+    super();
+    this.updatePeaks = throttle(
+      PEAK_UPDATE_PERIOD_MS,
+      this.updatePeaks.bind(this)
+    );
+  }
 
   mounted(): void {
     this.recorder.on("stateChanged", this.handleStateChange);
@@ -138,12 +147,7 @@ export default class App extends Vue {
   async open(): Promise<void> {
     this.busy = true;
 
-    this.player = new Player(
-      this.sampleRate,
-      this.bitDepth,
-      this.channels,
-      PEAK_UPDATE_PERIOD_MS
-    );
+    this.player = new Player(this.sampleRate, this.bitDepth, this.channels);
 
     for (let i = 0; i < this.channels; i++) {
       this.player.setMute(i, this.tracks[i]?.muted);
@@ -178,29 +182,20 @@ export default class App extends Vue {
   }
 
   handleSamples(samples: Buffer): void {
-    const received = (this.samplesReceived = Buffer.concat([
-      this.samplesReceived,
-      samples,
-    ]));
+    this.player!.feed(samples);
+    this.updatePeaks(samples);
+  }
 
-    const samplesPerMs = this.sampleRate / 1000;
+  updatePeaks(samples: Buffer): void {
     const bytesPerSample = this.bitDepth / 8;
 
-    const bufferLength =
-      PEAK_UPDATE_PERIOD_MS * samplesPerMs * bytesPerSample * this.channels;
-
-    if (received.length >= bufferLength) {
-      const peaks: number[] = [];
-      for (let i = 0; i < this.channels; i++) {
-        const sample = received.readInt32LE(i * bytesPerSample) / 0xffffffff;
-        peaks[i] = Math.abs(sample) * 100 * 20;
-      }
-      this.peaks = peaks;
-
-      this.player!.feed(received.slice(0, bufferLength));
-
-      this.samplesReceived = received.slice(bufferLength);
+    const peaks: number[] = [];
+    for (let i = 0; i < this.channels; i++) {
+      const sample = samples.readInt32LE(i * bytesPerSample) / 0xffffffff;
+      peaks[i] = Math.abs(sample) * 100 * 20;
     }
+
+    this.peaks = peaks;
   }
 }
 </script>

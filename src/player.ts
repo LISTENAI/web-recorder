@@ -6,12 +6,9 @@ export default class Player {
   readonly sampleRate: ISampleRate;
   readonly bitDepth: IBitDepth;
   readonly channels: number;
-  readonly flushTimeMs: number;
 
-  private readonly clock: NodeJS.Timeout;
   private readonly base: number;
 
-  private samples: Float32Array = new Float32Array();
   private readonly inputType: Int16ArrayConstructor | Int32ArrayConstructor;
 
   private readonly audioCtx: AudioContext;
@@ -21,13 +18,10 @@ export default class Player {
 
   private startTime: number;
 
-  constructor(sampleRate: ISampleRate = 16000, bitDepth: IBitDepth = 32, channels = 6, flushTimeMs = 100) {
+  constructor(sampleRate: ISampleRate = 16000, bitDepth: IBitDepth = 32, channels = 6) {
     this.sampleRate = sampleRate;
     this.bitDepth = bitDepth;
     this.channels = channels;
-    this.flushTimeMs = flushTimeMs;
-
-    this.clock = setInterval(this.flush.bind(this), flushTimeMs);
 
     this.base = {
       16: (0xFFFF + 1) / 2,
@@ -54,32 +48,13 @@ export default class Player {
 
     const input = new this.inputType(samples.buffer);
 
-    const buffer = new Float32Array(this.samples.length + samplesCount);
-    buffer.set(this.samples, 0);
+    const buffer = new Float32Array(samplesCount);
 
     for (let i = 0; i < samplesCount; i++) {
-      buffer[this.samples.length + i] = input[i] / this.base;
+      buffer[i] = input[i] / this.base;
     }
 
-    this.samples = buffer;
-  }
-
-  destroy(): void {
-    clearInterval(this.clock);
-    this.samples = new Float32Array();
-    this.audioCtx.close();
-  }
-
-  setMute(channel: number, muted: boolean): void {
-    this.muted[channel] = muted;
-  }
-
-  private flush(): void {
-    if (this.samples.length <= 0) {
-      return;
-    }
-
-    const frames = this.samples.length / this.channels;
+    const frames = buffer.length / this.channels;
 
     const bufferSource = this.audioCtx.createBufferSource();
     const audioBuffer = this.audioCtx.createBuffer(1, frames, this.sampleRate);
@@ -89,7 +64,7 @@ export default class Player {
       audioData[i] = 0;
       for (let channel = 0; channel < this.channels; channel++) {
         if (!this.muted[channel]) {
-          audioData[i] += this.samples[i * this.channels + channel] / this.channels;
+          audioData[i] += buffer[i * this.channels + channel] / this.channels;
         }
       }
     }
@@ -102,7 +77,14 @@ export default class Player {
     bufferSource.connect(this.gainNode);
     bufferSource.start(this.startTime);
     this.startTime += audioBuffer.duration;
-    this.samples = new Float32Array();
+  }
+
+  destroy(): void {
+    this.audioCtx.close();
+  }
+
+  setMute(channel: number, muted: boolean): void {
+    this.muted[channel] = muted;
   }
 
 }

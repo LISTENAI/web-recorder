@@ -14,7 +14,7 @@ const USB_PID = 0x3143;
 
 const USB_EP_IN = 3;
 
-const READ_MS = 2;
+const READ_MS = 10;
 
 export default class Recorder extends EventEmitter {
 

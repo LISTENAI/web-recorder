@@ -17,6 +17,20 @@
       </a-col>
 
       <a-col>
+        <a-button
+          icon="download"
+          @click="startRecord"
+          :disabled="!opened"
+          v-if="!recording"
+        >
+          保存音频
+        </a-button>
+        <a-button type="danger" @click="stopRecord" v-else>
+          {{ recordTime }}
+        </a-button>
+      </a-col>
+
+      <a-col>
         <a-select
           v-model="sampleRate"
           :disabled="opened"
@@ -83,9 +97,11 @@
 <script lang="ts">
 import { Component, Vue, Watch } from "vue-property-decorator";
 import { throttle } from "throttle-debounce";
+import { DateTime, Duration } from "luxon";
 
 import Recorder from "./recorder";
 import Player, { ISampleRate, IBitDepth } from "./player";
+import Writer from "./writer";
 
 interface ITrack {
   muted: boolean;
@@ -98,6 +114,8 @@ export default class App extends Vue {
   opened = false;
   busy = false;
 
+  recording = false;
+
   recorder = new Recorder();
 
   sampleRate: ISampleRate = 16000;
@@ -108,12 +126,19 @@ export default class App extends Vue {
   peaks: number[] = [];
 
   player: Player | null = null;
+  writer: Writer | null = null;
+
+  recordTime = "";
 
   constructor() {
     super();
     this.updatePeaks = throttle(
       PEAK_UPDATE_PERIOD_MS,
       this.updatePeaks.bind(this)
+    );
+    this.updateRecordTime = throttle(
+      PEAK_UPDATE_PERIOD_MS,
+      this.updateRecordTime.bind(this)
     );
   }
 
@@ -157,12 +182,36 @@ export default class App extends Vue {
   async close(): Promise<void> {
     this.busy = true;
 
+    if (this.recording) {
+      this.stopRecord();
+    }
+
     if (this.player) {
       this.player.destroy();
       this.player = null;
     }
 
     await this.recorder.close();
+  }
+
+  async startRecord(): Promise<void> {
+    const time = DateTime.now().toFormat("yyyy-MM-dd_HHmmss");
+
+    const kHz = this.sampleRate / 1000;
+    const format = `${kHz}k${this.bitDepth}b${this.channels}ch`;
+
+    this.writer = new Writer(this.sampleRate, this.bitDepth, this.channels);
+    this.writer.request(`${time}_${format}.pcm`);
+
+    this.recording = true;
+  }
+
+  stopRecord(): void {
+    this.recording = false;
+    if (this.writer != null) {
+      this.writer.finish();
+      this.writer = null;
+    }
   }
 
   toggleTrackMuted(i: number): void {
@@ -183,7 +232,14 @@ export default class App extends Vue {
     if (this.player) {
       this.player.feed(samples);
     }
+    if (this.writer) {
+      this.updateRecordTime(this.writer.feed(samples));
+    }
     this.updatePeaks(samples);
+  }
+
+  updateRecordTime(durationMS: number): void {
+    this.recordTime = Duration.fromMillis(durationMS).toFormat("mm:ss.SSS");
   }
 
   updatePeaks(samples: Buffer): void {

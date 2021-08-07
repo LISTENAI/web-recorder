@@ -11,6 +11,8 @@
   "dependencies": {
     "ant-design-vue": "^1.7.4",
     "core-js": "^3.6.5",
+    "luxon": "^2.0.1",
+    "streamsaver": "^2.0.5",
     "throttle-debounce": "^3.0.1",
     "vue": "^2.6.11",
     "vue-class-component": "^7.2.6",
@@ -18,7 +20,9 @@
   },
   "devDependencies": {
     "@types/jest": "^26.0.23",
+    "@types/luxon": "^1.27.1",
     "@types/node": "^15.12.4",
+    "@types/streamsaver": "^2.0.1",
     "@types/throttle-debounce": "^2.1.0",
     "@typescript-eslint/eslint-plugin": "^4.28.0",
     "@typescript-eslint/parser": "^4.28.0",
@@ -28,6 +32,7 @@
     "@vue/cli-service": "~4.5.0",
     "@vue/eslint-config-typescript": "^7.0.0",
     "babel-plugin-import": "^1.13.3",
+    "copy-webpack-plugin": "^5.1.2",
     "eslint": "^6.7.2",
     "eslint-plugin-vue": "^6.2.2",
     "jest": "^27.0.5",

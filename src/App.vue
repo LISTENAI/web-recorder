@@ -26,6 +26,7 @@
       </a-col>
       <a-col>
         <a-select v-model="bitDepth" :disabled="opened" :style="{ width: '100px' }">
+          <a-select-option :value="16">16 bit</a-select-option>
           <a-select-option :value="32">32 bit</a-select-option>
         </a-select>
       </a-col>

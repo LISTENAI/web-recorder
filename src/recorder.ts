@@ -81,7 +81,7 @@ export default class Recorder extends EventEmitter {
       const queue: Buffer[] = [];
       const bytesPerFrame = this.bytesPerSample * this.channels;
 
-      const offset = findFirstChannel(this.buffer, samples, this.bytesPerSample, this.channels);
+      const offset = this.bytesPerSample == 4 ? findFirstChannel(this.buffer, samples, this.bytesPerSample, this.channels) : 0;
       if (offset == -1) {
         console.error('Cannot find first channel');
         continue;
